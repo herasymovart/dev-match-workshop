@@ -26,3 +26,8 @@ apps/api/src/generated/
 .claude/settings.local.json
 .claude/worktrees/
 CLAUDE.local.md
+
+# tests
+apps/api/prisma/test.db*
+test-results/
+playwright-report/

@@ -19,7 +19,8 @@ pnpm install            # once
 pnpm db:migrate         # apply migrations (needs apps/api/.env, see .env.example)
 pnpm dev                # web :5173 (proxies /api) + api :3000
 pnpm typecheck          # all packages
-pnpm test               # vitest, all packages
+pnpm test               # vitest: unit + API (SQLite test DB) + component, all packages
+pnpm test:e2e           # Playwright journeys (starts api + web; needs apps/api/.env + migrated dev.db)
 ```
 
 ## Documentation map — read before you change things
@@ -32,6 +33,7 @@ pnpm test               # vitest, all packages
 | Make a technology or structure decision | `docs/analysis/options.md` (options compared), `docs/adr/README.md`, then `/adr` |
 | Understand why something is the way it is | `docs/adr/`, `docs/analysis/requirements-digest.md` |
 | See what is risky | `docs/architecture/risks.md` |
+| Write or review tests | `docs/architecture/testing.md` (levels, naming, test DB, race test, e2e rules) |
 
 Requirements in `docs/project_context.md` and `docs/US-*.md` are in Ukrainian (original input).
 Every other document, prompt, comment and user-facing string is in English; code, identifiers,
@@ -50,6 +52,7 @@ acceptance-criteria texts.
 - Response DTOs are built in `serializers`; never spread a Prisma object into a response.
   `passwordHash` never leaves the server. Lead Telegram only in the applicant's APPROVED application.
 - Statuses are strings in SQLite; the only allowed values are the zod enums in `packages/shared`.
+- Tests: one Gherkin scenario = one test, named `US-xx sc.N …`; API tests hit the real SQLite test DB through `supertest`, never mock Prisma or services; `resetDb()` in `beforeEach`. See `docs/architecture/testing.md`.
 
 ## Definition of done for a user story
 
@@ -63,6 +66,8 @@ acceptance-criteria texts.
 
 - `/implement-story US-xx` — plan then implement a story, tests from Gherkin.
 - `/check-story US-xx` — verify coverage of AC and scenarios.
+- `/unit-tests US-xx` — unit + API tests from the story's scenarios, coverage table.
+- `/e2e-tests <journey>` — Playwright spec for a journey across stories.
 - `/adr <title>` — record a decision with alternatives.
 - The `architecture-reviewer` agent reviews a diff against ADRs and architecture docs.
 - Folder rules in `.claude/rules/` load only when you touch `apps/api`, `apps/web` or the input docs; a hook blocks edits to the input docs.

@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@12.14.0",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "dev": "pnpm -r --parallel --stream dev",
     "build": "pnpm --filter @devmatch/web build",
@@ -11,9 +13,12 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter @devmatch/api db:generate",
-    "db:migrate": "pnpm --filter @devmatch/api db:migrate"
+    "db:migrate": "pnpm --filter @devmatch/api db:migrate",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^20.17.0"
   }
 }

@@ -7,6 +7,8 @@
       "Bash(pnpm build:*)",
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm test:*)",
+      "Bash(pnpm test:e2e:*)",
+      "Bash(pnpm exec playwright:*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm db:*)",
       "Bash(pnpm --filter:*)",

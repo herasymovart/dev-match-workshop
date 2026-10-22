@@ -19,8 +19,12 @@ pnpm dev
 
 ```bash
 pnpm typecheck
-pnpm test
+pnpm test                                   # unit + API + component
+pnpm exec playwright install chromium       # once
+pnpm test:e2e                               # browser journeys against the dev servers
 ```
+
+Testing strategy and conventions: `docs/architecture/testing.md`.
 
 ## Structure
 
@@ -28,6 +32,7 @@ pnpm test
 apps/web         React SPA (Vite)
 apps/api         Express API + Prisma (SQLite)
 packages/shared  zod schemas, status enums, DTO types
+e2e/             Playwright journeys
 docs/            requirements, analysis, ADRs, architecture
 workshop/        workshop materials (prompts, runbook)
 ```
