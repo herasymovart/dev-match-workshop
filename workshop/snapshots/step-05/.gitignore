@@ -1,0 +1,28 @@
+# deps / build
+node_modules/
+dist/
+build/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# env & db
+.env
+.env.local
+*.db
+*.db-journal
+apps/api/prisma/dev.db*
+
+# prisma generated client
+apps/api/src/generated/
+
+# os / ide
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# claude local
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
