@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevMatch system map</title>
+<meta name="description" content="Visual companion to docs/architecture/*.md: context, containers, end-to-end flow, state machines, pages and decisions. Self-contained, opens from the file system.">
+<style>
+  :root {
+    --bg: #0b1020; --bg2: #121a33; --card: #161e38; --line: #2a3558; --text: #e8ecf8; --muted: #9aa6c8;
+    --accent: #8b9cff; --lead: #f5b547; --student: #3dd6b8; --db: #7fe3a1; --ext: #8c95b3; --danger: #ff7a7a; --tx: #c792ff;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6fb; --bg2: #e9edf7; --card: #ffffff; --line: #d6dcec; --text: #141a2e; --muted: #5a648a;
+    --accent: #4b5fe0; --lead: #c47d00; --student: #0e9b84; --db: #1f9a52; --ext: #6b7391; --danger: #d64545; --tx: #7a3fd1;
+    --shadow: 0 10px 30px rgba(20,26,46,.10);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text); background: radial-gradient(1200px 600px at 10% -10%, var(--bg2), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; padding: 22px 24px 10px; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  button.toggle { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  nav { display: flex; gap: 6px; padding: 6px 24px 16px; flex-wrap: wrap; position: sticky; top: 0; background: linear-gradient(var(--bg) 70%, transparent); z-index: 5; }
+  nav button { background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 14px; }
+  nav button[aria-selected="true"] { background: var(--card); color: var(--text); border-color: var(--line); box-shadow: var(--shadow); }
+  nav button kbd { font: inherit; font-size: 11px; color: var(--muted); margin-right: 6px; }
+  main { padding: 0 24px 48px; max-width: 1240px; margin: 0 auto; }
+  section[hidden] { display: none; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 18px 20px; }
+  .panel h2 { margin: 0 0 4px; font-size: 18px; }
+  .panel p.lead { margin: 0 0 14px; color: var(--muted); }
+  .grid { display: grid; gap: 16px; }
+  .two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font-family: inherit; fill: var(--text); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+  .callout { border-left: 3px solid var(--accent); padding: 8px 14px; margin-top: 14px; color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 0 10px 10px 0; }
+  .callout b { color: var(--accent); }
+  .chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin: 2px 2px 2px 0; white-space: nowrap; }
+  .chip.us { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .chip.public { color: var(--student); border-color: color-mix(in srgb, var(--student) 50%, transparent); }
+  .chip.auth { color: var(--lead); border-color: color-mix(in srgb, var(--lead) 50%, transparent); }
+  .chip.owner { color: var(--tx); border-color: color-mix(in srgb, var(--tx) 50%, transparent); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--card) 70%, var(--bg)); }
+  .card .route { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--accent); }
+  .card h3 { margin: 4px 0 6px; font-size: 15px; }
+  .card .no { color: var(--muted); font-size: 12px; letter-spacing: .5px; }
+  .card .instead { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .card .instead s { opacity: .8; }
+  .steps { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+  .step { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; transition: background .2s, border-color .2s; }
+  .step .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; background: var(--bg2); color: var(--muted); }
+  .step.active { background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: var(--accent); }
+  .step.active .n { background: var(--accent); color: #fff; }
+  .step .t { font-weight: 600; }
+  .step .d { color: var(--muted); font-size: 13px; }
+  .step code, .callout code, .card code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: var(--bg2); padding: 1px 5px; border-radius: 5px; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .controls button { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 7px 16px; cursor: pointer; font-size: 14px; }
+  .controls button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 10px 24px 30px; }
+  .seq g.msg { opacity: .35; transition: opacity .25s; }
+  .seq g.msg.active, .seq.idle g.msg { opacity: 1; }
+  .seq g.msg.active .bubble { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent)); }
+</style>
+</head>
+<body>
+<header>
+  <h1>DevMatch · system map</h1>
+  <span class="sub">visual companion to <code>docs/architecture/*.md</code> — the text is the source of truth, this page is the picture</span>
+  <span class="spacer"></span>
+  <button class="toggle" id="theme">☾ / ☀</button>
+</header>
+<nav id="tabs" role="tablist">
+  <button role="tab" data-tab="context" aria-selected="true"><kbd>1</kbd>Context</button>
+  <button role="tab" data-tab="containers"><kbd>2</kbd>Containers &amp; layers</button>
+  <button role="tab" data-tab="flow"><kbd>3</kbd>The intersection flow</button>
+  <button role="tab" data-tab="states"><kbd>4</kbd>State machines</button>
+  <button role="tab" data-tab="pages"><kbd>5</kbd>Pages → stories</button>
+  <button role="tab" data-tab="decisions"><kbd>6</kbd>Decisions</button>
+</nav>
+<main>
+
+<!-- 1. CONTEXT -->
+<section id="context" class="panel">
+  <h2>System context (C4 level 1)</h2>
+  <p class="lead">Two kinds of people, one system, and two external services that are <em>links</em>, not integrations.</p>
+  <svg id="svg-context" viewBox="0 0 1100 440" aria-label="System context diagram"></svg>
+  <div class="legend">
+    <span style="--c: var(--lead)">Project lead</span>
+    <span style="--c: var(--student)">Student</span>
+    <span style="--c: var(--accent)">DevMatch (what we build)</span>
+    <span style="--c: var(--ext)">External: link only, no API call</span>
+  </div>
+  <div class="callout"><b>No arrows go back.</b> DevMatch never calls Telegram or GitHub. It validates a username or a URL and renders a link. If either service is down, nothing in DevMatch breaks. See <code>integrations.md</code>.</div>
+</section>
+
+<!-- 2. CONTAINERS -->
+<section id="containers" class="panel" hidden>
+  <h2>Containers and layers (C4 level 2 + ADR-0009)</h2>
+  <p class="lead">One Node process on a free PaaS serves the SPA and <code>/api</code>. Inside the API, requests go down through layers; business rules live in one place.</p>
+  <svg id="svg-containers" viewBox="0 0 1100 560" aria-label="Containers and layers diagram"></svg>
+  <div class="legend">
+    <span style="--c: var(--accent)">Containers</span>
+    <span style="--c: var(--tx)">API layers (ADR-0009)</span>
+    <span style="--c: var(--db)">Database</span>
+    <span style="--c: var(--student)">Shared library (imported by both)</span>
+  </div>
+  <div class="callout"><b>Only one box touches <code>availableSpots</code>.</b> <code>services/applications</code> changes the counter inside a transaction with a conditional update (ADR-0007). Routes parse and validate, services decide, serializers choose what leaves the server.</div>
+</section>
+
+<!-- 3. FLOW -->
+<section id="flow" class="panel" hidden>
+  <h2>The intersection: a student applies, the lead approves, the contact appears</h2>
+  <p class="lead">Where the two user journeys meet. Press play, or click a step.</p>
+  <div class="grid two">
+    <div>
+      <svg id="svg-flow" class="seq idle" viewBox="0 0 640 490" aria-label="Sequence diagram"></svg>
+    </div>
+    <div>
+      <div class="steps" id="flow-steps"></div>
+      <div class="controls">
+        <button id="play">▶ Play</button>
+        <button id="reset" class="ghost">Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="callout"><b>One transition, two entities, one transaction.</b> Approving changes <code>Application.status</code> and <code>Role.availableSpots</code> together. The conditional <code>UPDATE … WHERE availableSpots &gt; 0</code> is what makes two leads racing for the last spot safe: the second one gets <code>409 ROLE_FILLED</code>.</div>
+</section>
+
+<!-- 4. STATES -->
+<section id="states" class="panel" hidden>
+  <h2>State machines</h2>
+  <p class="lead">Every transition is traced to a story. Terminal states have no way back in the MVP.</p>
+  <svg id="svg-states" viewBox="0 0 1100 470" aria-label="State machines"></svg>
+  <div class="legend">
+    <span style="--c: var(--accent)">Transition (owner or applicant action)</span>
+    <span style="--c: var(--tx)">The approve transaction (ADR-0007)</span>
+    <span style="--c: var(--danger)">Rejected attempts (error code)</span>
+  </div>
+</section>
+
+<!-- 5. PAGES -->
+<section id="pages" class="panel" hidden>
+  <h2>Frontend pages → user stories</h2>
+  <p class="lead">Eight routes cover fourteen stories. The access chip is enforced on the server for every mutation, the page only hides buttons.</p>
+  <div class="cards" id="pages-cards"></div>
+</section>
+
+<!-- 6. DECISIONS -->
+<section id="decisions" class="panel" hidden>
+  <h2>Nine decisions, with what they replaced</h2>
+  <p class="lead">Each card is an ADR in <code>docs/adr/</code>. The strikethrough is the alternative we rejected for <em>this</em> team, not a bad option in general.</p>
+  <div class="cards" id="adr-cards"></div>
+</section>
+
+</main>
+<footer>DevMatch · generated at step 4 of the design workshop · keep in sync with the markdown documents, they win when in doubt</footer>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    for (const k of kids) n.append(k);
+    return n;
+  };
+  const text = (x, y, s, o = {}) => el('text', Object.assign({ x, y, 'font-size': 13, 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, o), s);
+  const lines = (x, y, arr, o = {}) => {
+    const g = el('g');
+    const lh = o.lh || 16;
+    arr.forEach((s, i) => g.append(text(x, y + i * lh, s, o)));
+    return g;
+  };
+  const C = () => ({ accent: css('--accent'), lead: css('--lead'), student: css('--student'), db: css('--db'), ext: css('--ext'), tx: css('--tx'), danger: css('--danger'), muted: css('--muted'), line: css('--line'), card: css('--card'), bg2: css('--bg2'), text: css('--text') });
+
+  function markers(svg, c) {
+    const defs = el('defs');
+    for (const [id, color] of Object.entries(c)) {
+      defs.append(el('marker', { id: `arr-${svg.id}-${id}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' },
+        el('path', { d: 'M0 0 L10 5 L0 10 z', fill: color })));
+    }
+    svg.append(defs);
+  }
+  const mk = (svg, id) => `url(#arr-${svg.id}-${id})`;
+
+  // A box with a title and sub-lines. kind -> color.
+  function box(svg, { x, y, w, h, title, sub = [], color, dashed = false, fill, r = 14, titleSize = 15, icon }) {
+    const g = el('g', { class: 'box' });
+    g.append(el('rect', { x, y, width: w, height: h, rx: r, fill: fill || 'var(--card)', stroke: color, 'stroke-width': dashed ? 1.5 : 2, 'stroke-dasharray': dashed ? '6 5' : 'none' }));
+    g.append(el('rect', { x: x + 1, y: y + 1, width: w - 2, height: 6, rx: 3, fill: color, opacity: .9 }));
+    const cy = y + 26 + (icon ? 22 : 0);
+    if (icon) g.append(text(x + w / 2, y + 24, icon, { 'font-size': 18 }));
+    g.append(text(x + w / 2, cy, title, { 'font-size': titleSize, 'font-weight': 600 }));
+    g.append(lines(x + w / 2, cy + 22, sub, { 'font-size': 12, fill: 'var(--muted)' }));
+    svg.append(g);
+    return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+  }
+
+  // Arrow between two boxes, choosing the facing sides automatically.
+  function link(svg, a, b, { label = '', color, dashed = false, id = 'accent', bend = 0, labelDy = -8, both = false, ay = 0, by = 0 } = {}) {
+    const dx = b.cx - a.cx, dy = b.cy - a.cy;
+    let p1, p2;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      p1 = [dx > 0 ? a.x + a.w : a.x, a.cy + ay]; p2 = [dx > 0 ? b.x : b.x + b.w, b.cy + by];
+    } else {
+      p1 = [a.cx, dy > 0 ? a.y + a.h : a.y]; p2 = [b.cx, dy > 0 ? b.y : b.y + b.h];
+    }
+    const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+    const d = bend ? `M${p1} Q${mx + bend},${my - bend} ${p2}` : `M${p1} L${p2}`;
+    const g = el('g');
+    g.append(el('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-dasharray': dashed ? '6 5' : 'none', 'marker-end': mk(svg, id), 'marker-start': both ? mk(svg, id) : 'none' }));
+    if (label) {
+      const w = label.length * 6.6 + 14;
+      g.append(el('rect', { x: mx - w / 2 + bend / 2, y: my + labelDy - 10 - bend / 2, width: w, height: 20, rx: 10, fill: 'var(--card)', stroke: color, 'stroke-width': 1, opacity: .95 }));
+      g.append(text(mx + bend / 2, my + labelDy - bend / 2, label, { 'font-size': 11.5, fill: color }));
+    }
+    svg.append(g);
+  }
+
+  // ---------- 1. context ----------
+  function drawContext() {
+    const svg = document.getElementById('svg-context'); svg.replaceChildren();
+    const c = C(); markers(svg, c);
+    const lead = box(svg, { x: 40, y: 60, w: 220, h: 110, title: 'Project lead', sub: ['creates a project and roles,', 'approves or rejects applications'], color: c.lead, icon: '🧭' });
+    const stud = box(svg, { x: 40, y: 270, w: 220, h: 110, title: 'Student', sub: ['browses the catalog, applies,', 'tracks the status'], color: c.student, icon: '🎓' });
+    const dm = box(svg, { x: 400, y: 110, w: 300, h: 220, title: 'DevMatch', sub: ['public catalog of projects', 'roles with limited spots', 'applications: pending → approved / rejected', 'lead ↔ student contact after approval', 'React SPA + Node API + SQLite'], color: c.accent, icon: '🧩', titleSize: 18 });
+    const tg = box(svg, { x: 840, y: 60, w: 220, h: 110, title: 'Telegram', sub: ['t.me/<nick> link shown', 'after approval'], color: c.ext, dashed: true, icon: '✈️' });
+    const gh = box(svg, { x: 840, y: 270, w: 220, h: 110, title: 'GitHub', sub: ['profile URL validated', 'and shown to the lead'], color: c.ext, dashed: true, icon: '🐙' });
+    link(svg, lead, dm, { label: 'manages the project · HTTPS', color: c.lead, id: 'lead', labelDy: -14, by: -40 });
+    link(svg, stud, dm, { label: 'browses, applies · HTTPS', color: c.student, id: 'student', labelDy: 18, by: 40 });
+    link(svg, dm, tg, { label: 'builds a link only', color: c.ext, id: 'ext', dashed: true, labelDy: -14, ay: -40 });
+    link(svg, dm, gh, { label: 'validates + displays a link', color: c.ext, id: 'ext', dashed: true, labelDy: 18, ay: 40 });
+    svg.append(text(550, 400, 'Both people are the same User entity: one account can lead one project and apply to another (digest A1).', { 'font-size': 12.5, fill: 'var(--muted)' }));
+  }
+
+  // ---------- 2. containers ----------
+  function drawContainers() {
+    const svg = document.getElementById('svg-containers'); svg.replaceChildren();
+    const c = C(); markers(svg, c);
+    // browser
+    const user = box(svg, { x: 30, y: 30, w: 180, h: 95, title: 'Browser', sub: ['lead or student'], color: c.ext, icon: '🧑‍💻' });
+    const web = box(svg, { x: 30, y: 170, w: 180, h: 200, title: 'Web SPA', sub: ['apps/web', 'React 18 + Vite', 'React Router', 'TanStack Query', 'CSS Modules', '', 'pages → hooks → api client'], color: c.accent });
+    // process boundary
+    svg.append(el('rect', { x: 290, y: 20, width: 560, height: 520, rx: 22, fill: 'none', stroke: c.accent, 'stroke-dasharray': '8 6', opacity: .7 }));
+    svg.append(text(570, 42, 'one Node 20 process on a free PaaS (Render / Railway) · ADR-0008', { 'font-size': 12.5, fill: 'var(--muted)' }));
+    svg.append(text(570, 62, 'serves apps/web/dist as static files and /api/* as JSON', { 'font-size': 12, fill: 'var(--muted)' }));
+    const api = { x: 330, y: 85, w: 480, h: 430 };
+    svg.append(el('rect', { x: api.x, y: api.y, width: api.w, height: api.h, rx: 18, fill: 'var(--card)', stroke: c.accent, 'stroke-width': 2 }));
+    svg.append(text(api.x + api.w / 2, api.y + 22, 'API · apps/api · Express 5 + zod + Prisma', { 'font-size': 15, 'font-weight': 600 }));
+    const layer = (y, title, items, color, h = 62) => {
+      const g = el('g');
+      g.append(el('rect', { x: api.x + 20, y, width: api.w - 40, height: h, rx: 12, fill: 'var(--bg2)', stroke: color, 'stroke-width': 1.5 }));
+      g.append(text(api.x + 20 + 12, y + 18, title, { 'font-size': 11.2, 'font-weight': 600, 'text-anchor': 'start', fill: color }));
+      const n = items.length, w = (api.w - 40 - 24) / n;
+      items.forEach((it, i) => {
+        const x = api.x + 20 + 12 + i * w + w / 2;
+        const bold = it.startsWith('*');
+        g.append(text(x, y + 42, it.replace('*', ''), { 'font-size': 12, 'font-weight': bold ? 700 : 400, fill: bold ? c.tx : 'var(--text)' }));
+      });
+      svg.append(g);
+      return { x: api.x + 20, y, w: api.w - 40, h, cx: api.x + api.w / 2, cy: y + h / 2 };
+    };
+    const l1 = layer(api.y + 40, 'routes/* — HTTP: parse, validate body, call a service, serialize', ['auth', 'me', 'projects', 'roles', 'applications'], c.tx);
+    const l2 = layer(api.y + 118, 'middleware — requireAuth → 401 · validate(schema) → 400 · errorHandler → { error: { code, message } }', ['auth', 'validate', 'error'], c.tx);
+    const l3 = layer(api.y + 196, 'services/* — business rules · owner and status checks on every mutation', ['auth', 'projects', 'catalog', '*applications ⟲ tx'], c.tx);
+    const l4 = layer(api.y + 274, 'serializers — DTOs per audience · passwordHash never · leadTelegram only if APPROVED', ['ProjectCard', 'ApplicationForOwner', 'MyApplication'], c.tx);
+    const l5 = layer(api.y + 352, 'prisma — schema, migrations, client', ['User', 'Session', 'Project', 'ProjectTag', 'Role', 'Application'], c.db);
+    const down = (a, b) => svg.append(el('path', { d: `M${a.cx - 150},${a.y + a.h} L${a.cx - 150},${b.y}`, stroke: c.tx, 'stroke-width': 2, 'marker-end': mk(svg, 'tx') }));
+    down(l1, l2); down(l2, l3); down(l3, l4); down(l4, l5);
+    // db
+    const db = box(svg, { x: 890, y: 320, w: 190, h: 140, title: 'SQLite file', sub: ['via Prisma', 'PostgreSQL = planned path', '(ADR-0005)'], color: c.db, icon: '🗄' });
+    // shared
+    const shared = box(svg, { x: 30, y: 420, w: 180, h: 110, title: 'packages/shared', sub: ['zod schemas · enums', 'DTO types · messages', 'imported by both'], color: c.student, dashed: true });
+    // arrows
+    link(svg, user, web, { label: 'HTTPS', color: c.ext, id: 'ext' });
+    svg.append(el('path', { d: `M${web.x + web.w},${web.cy} L${api.x},${l1.cy}`, stroke: c.accent, 'stroke-width': 2, 'marker-end': mk(svg, 'accent') }));
+    svg.append(el('rect', { x: 215, y: 215, width: 88, height: 34, rx: 10, fill: 'var(--card)', stroke: c.accent }));
+    svg.append(lines(259, 226, ['JSON /api/*', 'cookie session'], { 'font-size': 11, fill: c.accent, lh: 13 }));
+    svg.append(el('path', { d: `M${l5.x + l5.w},${l5.cy} L${db.x},${db.cy}`, stroke: c.db, 'stroke-width': 2, 'marker-end': mk(svg, 'db') }));
+    svg.append(el('path', { d: `M${shared.x + shared.w},${shared.cy} L${api.x},${l2.cy + 30}`, stroke: c.student, 'stroke-width': 1.5, 'stroke-dasharray': '5 5', 'marker-end': mk(svg, 'student') }));
+    svg.append(el('path', { d: `M${shared.cx},${shared.y} L${shared.cx},${web.y + web.h}`, stroke: c.student, 'stroke-width': 1.5, 'stroke-dasharray': '5 5', 'marker-end': mk(svg, 'student') }));
+  }
+
+  // ---------- 3. flow ----------
+  const FLOW = [
+    { from: 'S', to: 'A', s: 'apply to a role', t: 'POST /api/roles/:roleId/applications', d: 'Student sends telegram, githubUrl, comment. Body validated with the shared zod schema.', us: 'US-12' },
+    { from: 'A', to: 'D', s: 'tx: checks + INSERT', t: 'tx: checks, then INSERT PENDING', d: 'project PUBLISHED? role OPEN and spots > 0? no active application for (user, role)? Otherwise 400 PROJECT_CLOSED / 409 ROLE_FILLED / 409 DUPLICATE_APPLICATION.', us: 'US-12 sc.3–4, US-08 sc.2', tx: true },
+    { from: 'A', to: 'S', s: '201 PENDING', t: '201 { status: PENDING }', d: 'The application appears in "My applications" with status Pending.', us: 'US-13', back: true },
+    { from: 'L', to: 'A', s: 'list applications', t: 'GET /api/projects/:id/applications', d: 'Owner only (403 otherwise). PENDING first, then by date. Candidate GitHub is visible, candidate Telegram is not yet.', us: 'US-05' },
+    { from: 'L', to: 'A', s: 'approve', t: 'POST /api/applications/:id/approve', d: 'Owner and status checks happen on the server regardless of what the UI showed.', us: 'US-06' },
+    { from: 'A', to: 'D', s: 'tx: spots − 1 if > 0', t: 'tx: UPDATE role SET available = available − 1 WHERE available > 0', d: 'count == 1 → UPDATE application APPROVED, role FILLED when the counter hits 0. count == 0 → rollback, 409 ROLE_FILLED. Two leads racing for the last spot: exactly one wins.', us: 'US-06 sc.1–3 · ADR-0007', tx: true },
+    { from: 'A', to: 'L', s: '200 APPROVED + contact', t: '200 { status: APPROVED, applicantTelegram, role.availableSpots }', d: 'Now the lead sees the candidate contact. The UI refreshes the counter.', us: 'US-06 AC', back: true },
+    { from: 'S', to: 'A', s: 'my applications → leadTelegram', t: 'GET /api/me/applications', d: 'The serializer adds leadTelegram only to the applicant’s own APPROVED applications. The field is absent, not null, otherwise.', us: 'US-14 sc.1–2' },
+  ];
+  let flowTimer = null, flowIdx = -1;
+  function drawFlow() {
+    const svg = document.getElementById('svg-flow'); svg.replaceChildren();
+    const c = C(); markers(svg, c);
+    const X = { S: 80, A: 280, D: 440, L: 580 };
+    const col = { S: c.student, A: c.accent, D: c.db, L: c.lead };
+    const names = { S: ['Student', '(web)'], A: ['API'], D: ['DB'], L: ['Project lead', '(web)'] };
+    const top = 60, bottom = 480;
+    for (const k of Object.keys(X)) {
+      svg.append(el('line', { x1: X[k], y1: top, x2: X[k], y2: bottom, stroke: c.line, 'stroke-width': 2, 'stroke-dasharray': '4 6' }));
+      svg.append(el('rect', { x: X[k] - 56, y: 10, width: 112, height: 44, rx: 12, fill: 'var(--card)', stroke: col[k], 'stroke-width': 2 }));
+      svg.append(lines(X[k], names[k].length > 1 ? 25 : 32, names[k], { 'font-size': 13, 'font-weight': 600, lh: 14 }));
+    }
+    FLOW.forEach((m, i) => {
+      const y = 85 + i * 52;
+      const x1 = X[m.from], x2 = X[m.to];
+      const color = m.tx ? c.tx : col[m.from];
+      const g = el('g', { class: 'msg', 'data-i': i });
+      g.append(el('path', { class: 'bubble', d: `M${x1},${y} L${x2},${y}`, stroke: color, 'stroke-width': 2.2, 'stroke-dasharray': m.back ? '6 4' : 'none', 'marker-end': mk(svg, m.tx ? 'tx' : (m.from === 'S' ? 'student' : m.from === 'L' ? 'lead' : m.from === 'A' ? 'accent' : 'db')) }));
+      const label = m.s;
+      const w = label.length * 6.4 + 16, mx = (x1 + x2) / 2;
+      g.append(el('rect', { x: mx - w / 2, y: y - 24, width: w, height: 20, rx: 10, fill: 'var(--card)', stroke: color }));
+      g.append(text(mx, y - 14, label, { 'font-size': 11, fill: color }));
+      g.append(el('circle', { cx: x1, cy: y, r: 9, fill: color }));
+      g.append(text(x1, y, String(i + 1), { 'font-size': 10, 'font-weight': 700, fill: '#fff' }));
+      g.addEventListener('click', () => setFlow(i));
+      svg.append(g);
+    });
+    const steps = document.getElementById('flow-steps'); steps.replaceChildren();
+    FLOW.forEach((m, i) => {
+      const d = document.createElement('div'); d.className = 'step'; d.dataset.i = i;
+      d.innerHTML = `<div class="n">${i + 1}</div><div><div class="t">${m.t}</div><div class="d">${m.d} <span class="chip us">${m.us}</span></div></div>`;
+      d.addEventListener('click', () => setFlow(i));
+      steps.append(d);
+    });
+  }
+  function setFlow(i) {
+    flowIdx = i;
+    const svg = document.getElementById('svg-flow');
+    svg.classList.toggle('idle', i < 0);
+    svg.querySelectorAll('g.msg').forEach(g => g.classList.toggle('active', +g.dataset.i === i));
+    document.querySelectorAll('#flow-steps .step').forEach(s => s.classList.toggle('active', +s.dataset.i === i));
+    const cur = document.querySelector('#flow-steps .step.active'); if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+  function play() {
+    stop(); setFlow(0);
+    flowTimer = setInterval(() => { if (flowIdx >= FLOW.length - 1) { stop(); return; } setFlow(flowIdx + 1); }, 1500);
+  }
+  function stop() { if (flowTimer) clearInterval(flowTimer); flowTimer = null; }
+  document.getElementById('play').addEventListener('click', play);
+  document.getElementById('reset').addEventListener('click', () => { stop(); setFlow(-1); });
+
+  // ---------- 4. states ----------
+  function drawStates() {
+    const svg = document.getElementById('svg-states'); svg.replaceChildren();
+    const c = C(); markers(svg, c);
+    const pill = (x, y, label, color, w = 120) => {
+      svg.append(el('rect', { x: x - w / 2, y: y - 19, width: w, height: 38, rx: 19, fill: 'var(--card)', stroke: color, 'stroke-width': 2 }));
+      svg.append(text(x, y, label, { 'font-size': 13, 'font-weight': 700, fill: color }));
+      return { x, y, w };
+    };
+    const start = (x, y) => svg.append(el('circle', { cx: x, cy: y, r: 7, fill: 'var(--text)' }));
+    const arrow = (x1, y1, x2, y2, label, color = c.accent, id = 'accent', bend = 0, dy = -10) => {
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      const d = bend ? `M${x1},${y1} Q${mx + bend},${my} ${x2},${y2}` : `M${x1},${y1} L${x2},${y2}`;
+      svg.append(el('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'marker-end': mk(svg, id) }));
+      if (label) {
+        const w = label.length * 6.3 + 12;
+        svg.append(el('rect', { x: mx + bend / 2 - w / 2, y: my + dy - 9, width: w, height: 18, rx: 9, fill: 'var(--card)', stroke: color, opacity: .95 }));
+        svg.append(text(mx + bend / 2, my + dy, label, { 'font-size': 11, fill: color }));
+      }
+    };
+    const note = (x, y, arr, color = c.danger) => {
+      const w = Math.max(...arr.map(s => s.length)) * 6.3 + 20, h = arr.length * 15 + 12;
+      svg.append(el('rect', { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 8, fill: 'color-mix(in srgb, ' + color + ' 10%, var(--card))', stroke: color, 'stroke-dasharray': '4 3' }));
+      svg.append(lines(x, y - h / 2 + 13, arr, { 'font-size': 11, fill: color, lh: 15 }));
+    };
+    const title = (x, s, sub) => { svg.append(text(x, 28, s, { 'font-size': 16, 'font-weight': 700 })); svg.append(text(x, 48, sub, { 'font-size': 12, fill: 'var(--muted)' })); };
+    // Project
+    title(190, 'Project', 'owned by one User · US-02, US-04, US-08');
+    start(190, 80); arrow(190, 87, 190, 101, '', c.accent);
+    const pd = pill(190, 120, 'DRAFT', c.accent);
+    arrow(190, 139, 190, 201, 'publish · roles ≥ 1 · US-04 sc.1', c.accent, 'accent', 0, 0);
+    const pp = pill(190, 220, 'PUBLISHED', c.accent);
+    arrow(190, 239, 190, 331, 'close · owner only · US-08 sc.1', c.accent, 'accent', 0, 0);
+    const pc = pill(190, 350, 'CLOSED', c.accent);
+    note(190, 420, ['publish without roles → 400 NO_ROLES', 'apply when CLOSED → 400 PROJECT_CLOSED', 'PENDING applications stay visible to the owner']);
+    svg.append(text(300, 120, 'owner only', { 'font-size': 11, fill: 'var(--muted)' }));
+    svg.append(text(300, 220, 'in the catalog', { 'font-size': 11, fill: 'var(--muted)' }));
+    // Role
+    title(550, 'Role', 'belongs to a Project · spots 1–5 · US-03, US-06');
+    start(550, 80); arrow(550, 87, 550, 101, '', c.accent);
+    pill(550, 120, 'OPEN', c.accent);
+    arrow(550, 139, 550, 261, 'approve → available − 1 == 0 · US-06 sc.2', c.tx, 'tx', 0, 0);
+    svg.append(el('path', { d: 'M610,112 C690,90 690,150 612,128', fill: 'none', stroke: c.tx, 'stroke-width': 2, 'marker-end': mk(svg, 'tx') }));
+    svg.append(text(700, 150, 'approve, spots still > 0 · sc.1', { 'font-size': 11, fill: c.tx }));
+    pill(550, 280, 'FILLED', c.accent);
+    note(550, 360, ['approve or apply when FILLED → 409 ROLE_FILLED', 'reject never changes the counter · US-07 AC', 'no way back to OPEN in the MVP']);
+    svg.append(text(550, 420, 'available_spots == 0  ⇔  FILLED', { 'font-size': 12, fill: 'var(--muted)' }));
+    // Application
+    title(900, 'Application', 'one per (applicant, role) while active · US-12, US-06, US-07');
+    start(900, 80); arrow(900, 87, 900, 101, '', c.accent);
+    pill(900, 120, 'PENDING', c.accent);
+    arrow(880, 139, 810, 261, 'approve · US-06', c.tx, 'tx', 0, -4);
+    arrow(920, 139, 990, 261, 'reject · US-07', c.accent, 'accent', 0, -4);
+    pill(800, 280, 'APPROVED', c.tx, 110);
+    pill(1000, 280, 'REJECTED', c.accent, 110);
+    note(900, 360, ['approve/reject again → 409 ALREADY_DECIDED', 'REJECTED does not block re-applying · US-12 sc.3', 'owner cannot apply to own project → 403 OWN_PROJECT']);
+    // bridge: approve transaction
+    svg.append(el('path', { d: 'M612,280 L743,280', fill: 'none', stroke: c.tx, 'stroke-width': 2, 'stroke-dasharray': '5 4' }));
+    svg.append(text(677, 268, 'same transaction', { 'font-size': 11, fill: c.tx }));
+    svg.append(el('rect', { x: 640, y: 440, width: 420, height: 24, rx: 12, fill: 'color-mix(in srgb, ' + c.tx + ' 12%, var(--card))', stroke: c.tx }));
+    svg.append(text(850, 452, 'approve = one transaction that moves both machines · ADR-0007', { 'font-size': 12, fill: c.tx, 'font-weight': 600 }));
+  }
+
+  // ---------- 5. pages ----------
+  const PAGES = [
+    { r: '/', n: 'Project catalog with a tag filter', us: ['US-09', 'US-10'], a: 'public' },
+    { r: '/projects/:id', n: 'Project card, roles, application form', us: ['US-11', 'US-12'], a: 'public', note: 'applying needs sign-in' },
+    { r: '/login · /register', n: 'Sign in / Register', us: ['ADR-0006'], a: 'public' },
+    { r: '/onboarding', n: 'Telegram contact', us: ['US-01'], a: 'auth', note: 'shown when the contact is empty' },
+    { r: '/my/projects', n: 'My projects', us: ['navigation'], a: 'auth' },
+    { r: '/my/projects/new', n: 'Create project', us: ['US-02'], a: 'auth', note: 'needs Telegram filled in' },
+    { r: '/my/projects/:id', n: 'Manage project: Roles and Applications tabs', us: ['US-03', 'US-04', 'US-08', 'US-05', 'US-06', 'US-07'], a: 'owner' },
+    { r: '/my/applications', n: 'My applications with statuses and the lead contact', us: ['US-13', 'US-14'], a: 'auth' },
+  ];
+  const ACCESS = { public: 'public', auth: 'signed in', owner: 'owner only' };
+  document.getElementById('pages-cards').innerHTML = PAGES.map(p => `
+    <div class="card"><div class="route">${p.r}</div><h3>${p.n}</h3>
+      <div>${p.us.map(u => `<span class="chip us">${u}</span>`).join('')}<span class="chip ${p.a}">${ACCESS[p.a]}</span></div>
+      ${p.note ? `<div class="instead">${p.note}</div>` : ''}</div>`).join('');
+
+  // ---------- 6. decisions ----------
+  const ADRS = [
+    ['0001', 'Web application (React), not a mobile app', 'links shareable in chats, public catalog, no store review', 'React Native app'],
+    ['0002', 'pnpm monorepo: apps/web, apps/api, packages/shared', 'one lockfile, shared schemas, one PR for a story', 'two repositories, or one app with the API inside'],
+    ['0003', 'Vite + React + TypeScript, React Router, TanStack Query, CSS Modules', 'well known to the team; server state stays in one place', 'Next.js, a UI kit on day one'],
+    ['0004', 'Node 20 + Express 5, zod, REST/JSON, one error format', 'small surface, every body validated before a handler runs', 'NestJS, Fastify, tRPC'],
+    ['0005', 'Prisma; SQLite for dev and MVP, PostgreSQL as the planned path', 'zero infrastructure for the first release; provider switch is one migration', 'PostgreSQL from day one, MongoDB'],
+    ['0006', 'Email + password, cookie sessions; OAuth post-MVP', 'the requirements never described login; this is the minimum that satisfies US-01 and US-12', 'Google / GitHub OAuth, magic links, no auth'],
+    ['0007', 'Spot counter: conditional UPDATE in a transaction, 409 on conflict', 'two leads racing for the last spot: exactly one wins, provably', 'check-then-write in app code, optimistic version column'],
+    ['0008', 'One Node process serves the API and the static SPA on a free PaaS', 'one deploy, one URL, SQLite on a persistent disk', 'static hosting + separate API, containers'],
+    ['0009', 'Layered monolith: routes → services → prisma; frontend pages + hooks + server state', 'rules in one layer, testable through HTTP, no ceremony', 'clean / hexagonal architecture, microservices, fat controllers'],
+  ];
+  document.getElementById('adr-cards').innerHTML = ADRS.map(([n, t, why, instead]) => `
+    <div class="card"><div class="no">ADR-${n}</div><h3>${t}</h3><div class="instead">${why}</div>
+      <div class="instead">instead of <s>${instead}</s></div></div>`).join('');
+
+  // ---------- tabs, theme, keys ----------
+  const tabs = document.querySelectorAll('#tabs [role=tab]');
+  function show(name) {
+    tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+    document.querySelectorAll('main > section').forEach(s => s.hidden = s.id !== name);
+    try { localStorage.setItem('devmatch-tab', name); } catch (e) {}
+    if (name === 'flow' && flowIdx < 0) setFlow(-1);
+  }
+  tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    const i = parseInt(e.key, 10);
+    if (i >= 1 && i <= tabs.length) show(tabs[i - 1].dataset.tab);
+    if (e.key === ' ' && !document.getElementById('flow').hidden) { e.preventDefault(); flowTimer ? stop() : play(); }
+    if (e.key === 'ArrowRight' && !document.getElementById('flow').hidden) setFlow(Math.min(flowIdx + 1, FLOW.length - 1));
+    if (e.key === 'ArrowLeft' && !document.getElementById('flow').hidden) setFlow(Math.max(flowIdx - 1, 0));
+  });
+  function drawAll() { drawContext(); drawContainers(); drawFlow(); drawStates(); }
+  const root = document.documentElement;
+  function applyTheme(t) { if (t) root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); drawAll(); }
+  document.getElementById('theme').addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? '' : 'light';
+    try { localStorage.setItem('devmatch-theme', next); } catch (e) {}
+    applyTheme(next);
+  });
+  let theme = '', tab = 'context';
+  try { theme = localStorage.getItem('devmatch-theme') || ''; tab = localStorage.getItem('devmatch-tab') || 'context'; } catch (e) {}
+  applyTheme(theme);
+  show(tab);
+})();
+</script>
+</body>
+</html>
