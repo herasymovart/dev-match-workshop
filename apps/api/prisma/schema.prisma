@@ -1,0 +1,95 @@
+// Source of truth for shape: docs/architecture/data-model.md.
+// Statuses are String because Prisma has no enum support on SQLite (ADR-0005);
+// allowed values live in @devmatch/shared (ProjectStatus, RoleStatus, ApplicationStatus).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  telegram     String?  // normalized "@name" (US-01)
+  createdAt    DateTime @default(now())
+
+  sessions     Session[]
+  projects     Project[]
+  applications Application[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  ownerId     String
+  title       String
+  description String
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED | CLOSED
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner User         @relation(fields: [ownerId], references: [id])
+  tags  ProjectTag[]
+  roles Role[]
+
+  @@index([ownerId])
+  @@index([status, publishedAt(sort: Desc)])
+}
+
+model ProjectTag {
+  projectId String
+  tag       String // normalized lower-case (US-10)
+  label     String // as entered by the user
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tag])
+  @@index([tag])
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  totalSpots     Int
+  availableSpots Int
+  status         String   @default("OPEN") // OPEN | FILLED
+  createdAt      DateTime @default(now())
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@unique([projectId, name]) // US-03 sc.3 (case-insensitive check is done in the service)
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  roleId      String
+  applicantId String
+  telegram    String
+  githubUrl   String
+  comment     String?
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt   DateTime  @default(now())
+  decidedAt   DateTime?
+
+  role      Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  applicant User @relation(fields: [applicantId], references: [id])
+
+  @@index([roleId, status])
+  @@index([applicantId, createdAt(sort: Desc)])
+}
